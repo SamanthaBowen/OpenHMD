@@ -93,17 +93,40 @@ if(OPENHMD_DRIVER_PSVR)
 endif(OPENHMD_DRIVER_PSVR)
 
 if(OPENHMD_DRIVER_HTC_VIVE)
-	add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/)
 	set(openhmd_source_files ${openhmd_source_files}
 	${CMAKE_CURRENT_LIST_DIR}/src/drv_htc_vive/vive.c
 	#${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/miniz.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/mjson.c
+
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_usb.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_data.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_process.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/ootx_decoder.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_driverman.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_vive.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_config.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_cal.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_turveytori.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_octavioradii.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_charlesslow.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_daveortho.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_dummy.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/json_helpers.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/linmath.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/jsmn.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/os_generic.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/crc32.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/puff.c
 	)
 	add_definitions(-DDRIVER_HTC_VIVE)
+	add_definitions(-DUSE_DOUBLE)
 
 	find_package(HIDAPI REQUIRED)
-	include_directories(${HIDAPI_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/include/libsurvive)
-	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ survive)
+	include_directories(${HIDAPI_INCLUDE_DIRS}
+		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/include/libsurvive
+		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/redist)
+	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ z)
 endif(OPENHMD_DRIVER_HTC_VIVE)
 
 if(OPENHMD_DRIVER_NOLO)
@@ -154,11 +177,8 @@ add_library(openhmd-static STATIC ${openhmd_source_files})
 SET_TARGET_PROPERTIES(openhmd-static PROPERTIES OUTPUT_NAME openhmd CLEAN_DIRECT_OUTPUT 1)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_DIR}/)
 
-if(OPENHMD_DRIVER_HTC_VIVE)
-	add_dependencies(openhmd-shared survive)
-	add_dependencies(openhmd-static survive)
-endif(OPENHMD_DRIVER_HTC_VIVE)
-
+set_property(TARGET openhmd-static PROPERTY C_STANDARD 11)
+set_property(TARGET openhmd-shared PROPERTY C_STANDARD 11)
 
 #install properties
 install (TARGETS openhmd-shared openhmd-static DESTINATION lib)
