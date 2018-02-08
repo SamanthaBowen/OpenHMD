@@ -24,16 +24,25 @@
 
 #include "vive.h"
 
+typedef struct vive_priv_struct vive_priv;
 typedef struct {
-	ohmd_device base;
-	double libsurvive_pos[3];
-	double libsurvive_quat[4];
-
 	struct SurviveContext * libsurvive_ctx;
-
 	ohmd_thread* survive_poll_thread;
 	ohmd_mutex* survive_copy_mutex;
+	vive_priv* hmd;
+	vive_priv* lc;
+	vive_priv* rc;
+} vive_shared;
+
+typedef struct vive_priv_struct {
+	ohmd_device base;
+	vive_shared* shared;
+	int id;
+
+	double libsurvive_pos[3];
+	double libsurvive_quat[4];
 } vive_priv;
+
 
 quatf abs_rotate_offset = { -sqrt(0.5), 0, 0 ,sqrt(0.5) };
 
@@ -41,7 +50,9 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 {
 	vive_priv* priv = (vive_priv*)device;
 
-	ohmd_lock_mutex(priv->survive_copy_mutex);
+	//printf("getf for id %d\n", priv->id);
+
+	ohmd_lock_mutex(priv->shared->survive_copy_mutex);
 	switch(type){
 	case OHMD_ROTATION_QUAT:
 		// libsurvive_quat is 0=w 1=x 2=y 3=z
@@ -52,16 +63,15 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		out[3] = (FLT) priv->libsurvive_quat[0];
 
 		//rotation 90° around X axis
-		oquatf_mult_me(out, &abs_rotate_offset);
-
+		oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
 		out[0] = (FLT) priv->libsurvive_pos[0];
-		out[1] = (FLT) priv->libsurvive_pos[1];
-		out[2] = (FLT) priv->libsurvive_pos[2];
+		out[1] = (FLT) priv->libsurvive_quat[1];
+		out[2] = (FLT) priv->libsurvive_quat[2];
 
-		oquatf_get_rotated(&abs_rotate_offset, out, out);
+		oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
 		break;
 
 	case OHMD_DISTORTION_K:
@@ -75,15 +85,15 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		break;
 	}
 
-	ohmd_unlock_mutex(priv->survive_copy_mutex);
+	ohmd_unlock_mutex(priv->shared->survive_copy_mutex);
 	return 0;
 }
 
 static void close_device(ohmd_device* device)
 {
-	vive_priv* priv = (vive_priv*) device;
-	 ohmd_destroy_thread(priv->survive_poll_thread);
-	 ohmd_destroy_mutex(priv->survive_copy_mutex);
+	 vive_priv* priv = (vive_priv*) device;
+	 ohmd_destroy_thread(priv->shared->survive_poll_thread);
+	 ohmd_destroy_mutex(priv->shared->survive_copy_mutex);
 }
 
 
@@ -109,24 +119,36 @@ void libsurvive_button_callback(SurviveObject * so, uint8_t eventType, uint8_t b
 void libsurvive_raw_pose_callback(SurviveObject * so, uint8_t lighthouse, double *pos, double *quat)
 {
 	survive_default_raw_pose_process(so, lighthouse, pos, quat);
+	vive_priv* priv = so->ctx->user_ptr;
+	ohmd_lock_mutex(priv->shared->survive_copy_mutex);
 
+	double* s_pos;
+	double* s_quat;
 	// use pose of only lighthouse 0
 	if (strcmp(so->codename, "HMD") == 0 && lighthouse == 0) {
-
-		printf("Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
-
-		vive_priv* priv = so->ctx->user_ptr;
-		ohmd_lock_mutex(priv->survive_copy_mutex);
-		priv->libsurvive_pos[0] = - pos[0];
-		priv->libsurvive_pos[1] =   pos[1];
-		priv->libsurvive_pos[2] = - pos[2];
-
-		priv->libsurvive_quat[0] =   quat[0];
-		priv->libsurvive_quat[1] = - quat[1];
-		priv->libsurvive_quat[2] =   quat[2];
-		priv->libsurvive_quat[3] = - quat[3];
-		ohmd_unlock_mutex(priv->survive_copy_mutex);
+		//printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		s_pos = priv->shared->hmd->libsurvive_pos;
+		s_quat = priv->shared->hmd->libsurvive_quat;
+	} else if (strcmp(so->codename, "WM0") == 0 && lighthouse == 0) {
+		//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		s_pos = priv->shared->lc->libsurvive_pos;
+		s_quat = priv->shared->lc->libsurvive_quat;
+	} else if (strcmp(so->codename, "WM1") == 0 && lighthouse == 0) {
+		//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		s_pos = priv->shared->rc->libsurvive_pos;
+		s_quat = priv->shared->rc->libsurvive_quat;
 	}
+
+	s_pos[0] = - pos[0];
+	s_pos[1] =   pos[1];
+	s_pos[2] = - pos[2];
+
+	s_quat[0] =   quat[0];
+	s_quat[1] = - quat[1];
+	s_quat[2] =   quat[2];
+	s_quat[3] = - quat[3];
+
+	ohmd_unlock_mutex(priv->shared->survive_copy_mutex);
 }
 
 void libsurvive_imu_callback(SurviveObject * so, int mask, double * accelgyromag, uint32_t timecode, int id)
@@ -136,25 +158,27 @@ void libsurvive_imu_callback(SurviveObject * so, int mask, double * accelgyromag
 
 
 static unsigned int survive_poll_thread(void* argument) {
+	printf("poll!\n");
 	vive_priv* priv = (vive_priv*) argument;
-	priv->libsurvive_ctx = survive_init( 0 );
-	priv->libsurvive_ctx->user_ptr = argument; // to pass our vive_priv struct to the testprog_raw_pose_process callback
+	priv->shared->libsurvive_ctx = survive_init( 0 );
+	priv->shared->libsurvive_ctx->user_ptr = argument; // to pass our vive_priv struct to the testprog_raw_pose_process callback
 
-	if( !priv->libsurvive_ctx )
+	if( !priv->shared->libsurvive_ctx )
 	{
 		fprintf( stderr, "Fatal. Could not start\n" );
 	}
 
-	survive_install_button_fn(priv->libsurvive_ctx, libsurvive_button_callback);
-	survive_install_raw_pose_fn(priv->libsurvive_ctx, libsurvive_raw_pose_callback);
-	survive_install_imu_fn(priv->libsurvive_ctx, libsurvive_imu_callback);
-	survive_cal_install(priv->libsurvive_ctx);
+	survive_install_button_fn(priv->shared->libsurvive_ctx, libsurvive_button_callback);
+	survive_install_raw_pose_fn(priv->shared->libsurvive_ctx, libsurvive_raw_pose_callback);
+	survive_install_imu_fn(priv->shared->libsurvive_ctx, libsurvive_imu_callback);
+	survive_cal_install(priv->shared->libsurvive_ctx);
 
-	while(survive_poll(priv->libsurvive_ctx) == 0) {
+	while(survive_poll(priv->shared->libsurvive_ctx) == 0) {
 	}
 	return 0;
 }
 
+static vive_shared* shared; //TODO: get rid of this
 static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 {
 	vive_priv* priv = ohmd_alloc(driver->ctx, sizeof(vive_priv));
@@ -162,11 +186,33 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 	if(!priv)
 		return NULL;
 
+	if (!shared) {
+		printf("Initializing shared libsurvive access...\n");
+		shared = malloc(sizeof(vive_shared));
+		shared->survive_poll_thread = ohmd_create_thread(driver->ctx, survive_poll_thread, priv);
+		shared->survive_copy_mutex = ohmd_create_mutex(driver->ctx);
+		//printf("thread %d creates libsurvive thread\n", pthread_self());
+	}
+	priv->shared = shared;
+
+	priv->id = desc->id;
+	printf("init with id %d\n", priv->id);
+
 	priv->base.ctx = driver->ctx;
 
-                                                  	priv->survive_poll_thread = ohmd_create_thread(driver->ctx, survive_poll_thread, priv);
-	priv->survive_copy_mutex = ohmd_create_mutex(driver->ctx);
-	//printf("thread %d creates libsurvive thread\n", pthread_self());
+	// set up device callbacks
+	priv->base.getf = getf;
+	priv->base.close = close_device;
+
+	if (priv->id == 0) {
+		priv->shared->hmd = priv;
+	} else if (priv->id == 1) {
+		priv->shared->lc = priv;
+		return (ohmd_device*)priv;
+	} else if (priv->id == 2) {
+		priv->shared->rc = priv;
+		return (ohmd_device*)priv;
+	}
 
 	// Set default device properties
 	ohmd_set_default_device_properties(&priv->base.properties);
@@ -221,10 +267,6 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 			priv->base.properties.hsize/2 - priv->base.properties.lens_sep/2,
 			eye_to_screen_distance);
 
-	// set up device callbacks
-	priv->base.getf = getf;
-	priv->base.close = close_device;
-
 	return (ohmd_device*)priv;
 }
 
@@ -246,15 +288,46 @@ static void get_device_list(ohmd_driver* driver, ohmd_device_list* list)
 		snprintf(desc->path, OHMD_STR_SIZE, "%d", idx);
 
 		desc->driver_ptr = driver;
+		desc->device_flags = OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING | OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING;
 		desc->device_class = OHMD_DEVICE_CLASS_HMD;
+
+		desc->id = idx++;
+
+		//Controller 0
+		desc = &list->devices[list->num_devices++];
+
+		strcpy(desc->driver, "OpenHMD HTC Vive Driver (libsurvive)");
+		strcpy(desc->vendor, "HTC/Valve");
+		strcpy(desc->product, "HTC Vive: Controller 0");
+
+		strcpy(desc->path, cur_dev->path);
+
 		desc->device_flags =
 		OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING |
 		OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING |
-		OHMD_DEVICE_FLAGS_LEFT_CONTROLLER |
 		OHMD_DEVICE_FLAGS_RIGHT_CONTROLLER;
 
+		desc->driver_ptr = driver;
+		desc->id = idx++;
+
+		// Controller 1
+		desc = &list->devices[list->num_devices++];
+
+		strcpy(desc->driver, "OpenHMD HTC Vive Driver (libsurvive)");
+		strcpy(desc->vendor, "HTC/Valve");
+		strcpy(desc->product, "HTC Vive: Controller 1");
+
+		strcpy(desc->path, cur_dev->path);
+
+		desc->device_flags =
+		OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_LEFT_CONTROLLER;
+
+		desc->driver_ptr = driver;
+		desc->id = idx++;
+
 		cur_dev = cur_dev->next;
-		idx++;
 	}
 
 	hid_free_enumeration(devs);
