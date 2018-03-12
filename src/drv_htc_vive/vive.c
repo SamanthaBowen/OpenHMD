@@ -115,10 +115,10 @@ void libsurvive_button_callback(SurviveObject * so, uint8_t eventType, uint8_t b
 
 }
 
-
-void libsurvive_raw_pose_callback(SurviveObject * so, uint8_t lighthouse, double *pos, double *quat)
+void libsurvive_raw_pose_callback(SurviveObject *so, uint8_t lighthouse, SurvivePose *pose)
 {
-	survive_default_raw_pose_process(so, lighthouse, pos, quat);
+	survive_default_raw_pose_process(so, lighthouse, pose);
+
 	vive_priv* priv = so->ctx->user_ptr;
 	ohmd_lock_mutex(priv->shared->survive_copy_mutex);
 
@@ -126,27 +126,27 @@ void libsurvive_raw_pose_callback(SurviveObject * so, uint8_t lighthouse, double
 	double* s_quat;
 	// use pose of only lighthouse 0
 	if (strcmp(so->codename, "HMD") == 0 && lighthouse == 0) {
-		//printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		//printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 		s_pos = priv->shared->hmd->libsurvive_pos;
 		s_quat = priv->shared->hmd->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM0") == 0 && lighthouse == 0) {
-		//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 		s_pos = priv->shared->lc->libsurvive_pos;
 		s_quat = priv->shared->lc->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM1") == 0 && lighthouse == 0) {
-		//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]);
+		//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 		s_pos = priv->shared->rc->libsurvive_pos;
 		s_quat = priv->shared->rc->libsurvive_quat;
 	}
 
-	s_pos[0] = - pos[0];
-	s_pos[1] =   pos[1];
-	s_pos[2] = - pos[2];
+	s_pos[0] = - pose->Pos[0];
+	s_pos[1] =   pose->Pos[1];
+	s_pos[2] = - pose->Pos[2];
 
-	s_quat[0] =   quat[0];
-	s_quat[1] = - quat[1];
-	s_quat[2] =   quat[2];
-	s_quat[3] = - quat[3];
+	s_quat[0] =   pose->Rot[0];
+	s_quat[1] = - pose->Rot[1];
+	s_quat[2] =   pose->Rot[2];
+	s_quat[3] = - pose->Rot[3];
 
 	ohmd_unlock_mutex(priv->shared->survive_copy_mutex);
 }
