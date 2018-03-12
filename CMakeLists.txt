@@ -97,7 +97,6 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/drv_htc_vive/vive.c
 	#${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/miniz.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/mjson.c
-
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_usb.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_data.c
@@ -107,11 +106,15 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_vive.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_config.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_cal.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_turveytori.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_octavioradii.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_charlesslow.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_daveortho.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_dummy.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_reproject.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_default_devices.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_playback.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/json_helpers.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/linmath.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/jsmn.c
@@ -125,7 +128,8 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	find_package(HIDAPI REQUIRED)
 	include_directories(${HIDAPI_INCLUDE_DIRS}
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/include/libsurvive
-		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/redist)
+		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/redist
+		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive)
 	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ z)
 endif(OPENHMD_DRIVER_HTC_VIVE)
 
