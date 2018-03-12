@@ -126,7 +126,7 @@ void libsurvive_raw_pose_callback(SurviveObject *so, uint8_t lighthouse, Survive
 	double* s_quat;
 	// use pose of only lighthouse 0
 	if (strcmp(so->codename, "HMD") == 0 && lighthouse == 0) {
-		//printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
+		printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 		s_pos = priv->shared->hmd->libsurvive_pos;
 		s_quat = priv->shared->hmd->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM0") == 0 && lighthouse == 0) {
