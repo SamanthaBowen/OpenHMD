@@ -107,6 +107,10 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_config.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_cal.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_epnp.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/persistent_scene.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/epnp/epnp.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/minimal_opencv.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_turveytori.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_octavioradii.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_charlesslow.c
@@ -130,7 +134,7 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/include/libsurvive
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/redist
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive)
-	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ z)
+	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ z opencv_core lapacke)
 endif(OPENHMD_DRIVER_HTC_VIVE)
 
 if(OPENHMD_DRIVER_NOLO)
