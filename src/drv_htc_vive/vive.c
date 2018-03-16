@@ -63,7 +63,7 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		out[3] = (FLT) priv->libsurvive_quat[0];
 
 		//rotation 90° around X axis
-		oquatf_mult_me((quatf*) out, &abs_rotate_offset);
+		//oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
@@ -71,7 +71,7 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		out[1] = (FLT) priv->libsurvive_quat[1];
 		out[2] = (FLT) priv->libsurvive_quat[2];
 
-		oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
+		//oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
 		break;
 
 	case OHMD_DISTORTION_K:
