@@ -18,9 +18,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define USE_DOUBLE
 #include <survive.h>
-#undef USE_DOUBLE
 
 #include "vive.h"
 
@@ -63,7 +61,7 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		out[3] = (FLT) priv->libsurvive_quat[0];
 
 		//rotation 90° around X axis
-		//oquatf_mult_me((quatf*) out, &abs_rotate_offset);
+		oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
@@ -71,7 +69,7 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 		out[1] = (FLT) priv->libsurvive_quat[1];
 		out[2] = (FLT) priv->libsurvive_quat[2];
 
-		//oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
+		oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
 		break;
 
 	case OHMD_DISTORTION_K:
@@ -125,8 +123,8 @@ void libsurvive_raw_pose_callback(SurviveObject *so, uint8_t lighthouse, Survive
 	double* s_pos;
 	double* s_quat;
 	// use pose of only lighthouse 0
-	if (strcmp(so->codename, "HMD") == 0 && lighthouse == 0) {
-		printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
+	if (strcmp(so->codename, "HMD") == 0) {
+		//printf("HMD Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 		s_pos = priv->shared->hmd->libsurvive_pos;
 		s_quat = priv->shared->hmd->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM0") == 0 && lighthouse == 0) {
@@ -160,7 +158,9 @@ void libsurvive_imu_callback(SurviveObject * so, int mask, double * accelgyromag
 static unsigned int survive_poll_thread(void* argument) {
 	printf("poll!\n");
 	vive_priv* priv = (vive_priv*) argument;
-	priv->shared->libsurvive_ctx = survive_init( 0 );
+	char *argv[1];
+	argv[0] = "OpenHMD-libsurvive";
+	priv->shared->libsurvive_ctx = survive_init( 1, argv );
 	priv->shared->libsurvive_ctx->user_ptr = argument; // to pass our vive_priv struct to the testprog_raw_pose_process callback
 
 	if( !priv->shared->libsurvive_ctx )
@@ -171,6 +171,7 @@ static unsigned int survive_poll_thread(void* argument) {
 	survive_install_button_fn(priv->shared->libsurvive_ctx, libsurvive_button_callback);
 	survive_install_raw_pose_fn(priv->shared->libsurvive_ctx, libsurvive_raw_pose_callback);
 	survive_install_imu_fn(priv->shared->libsurvive_ctx, libsurvive_imu_callback);
+	survive_startup(priv->shared->libsurvive_ctx);
 	survive_cal_install(priv->shared->libsurvive_ctx);
 
 	while(survive_poll(priv->shared->libsurvive_ctx) == 0) {

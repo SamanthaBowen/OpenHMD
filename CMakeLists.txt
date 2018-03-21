@@ -95,7 +95,6 @@ endif(OPENHMD_DRIVER_PSVR)
 if(OPENHMD_DRIVER_HTC_VIVE)
 	set(openhmd_source_files ${openhmd_source_files}
 	${CMAKE_CURRENT_LIST_DIR}/src/drv_htc_vive/vive.c
-	#${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/miniz.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/mjson.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_usb.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive.c
@@ -108,8 +107,14 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_cal.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_epnp.c
-	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/persistent_scene.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/epnp/epnp.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_sba.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/sba/sba_lapack.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/sba/sba_chkjac.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/sba/sba_crsm.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/sba/sba_levmar.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/sba/sba_levmar_wrap.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_sensor_activations.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/minimal_opencv.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_turveytori.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_octavioradii.c
@@ -127,7 +132,7 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/puff.c
 	)
 	add_definitions(-DDRIVER_HTC_VIVE)
-	add_definitions(-DUSE_DOUBLE)
+	add_definitions(-DUSE_DOUBLE -DFLT=double)
 
 	find_package(HIDAPI REQUIRED)
 	include_directories(${HIDAPI_INCLUDE_DIRS}
