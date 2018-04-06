@@ -98,13 +98,15 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/mjson.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_usb.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive.c
-	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_data.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_imu.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_process.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/ootx_decoder.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_driverman.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_vive.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_config.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_cal.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_disambiguator.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_turveybiguator.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_epnp.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/epnp/epnp.c
@@ -127,7 +129,6 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/json_helpers.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/linmath.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/jsmn.c
-	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/os_generic.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/crc32.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/puff.c
 	)

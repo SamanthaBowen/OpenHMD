@@ -113,7 +113,7 @@ void libsurvive_button_callback(SurviveObject * so, uint8_t eventType, uint8_t b
 
 }
 
-void libsurvive_raw_pose_callback(SurviveObject *so, uint8_t lighthouse, SurvivePose *pose)
+void libsurvive_pose_callback(SurviveObject *so, uint32_t lighthouse, SurvivePose *pose)
 {
 	survive_default_raw_pose_process(so, lighthouse, pose);
 
@@ -169,7 +169,7 @@ static unsigned int survive_poll_thread(void* argument) {
 	}
 
 	survive_install_button_fn(priv->shared->libsurvive_ctx, libsurvive_button_callback);
-	survive_install_raw_pose_fn(priv->shared->libsurvive_ctx, libsurvive_raw_pose_callback);
+	survive_install_pose_fn(priv->shared->libsurvive_ctx, libsurvive_pose_callback);
 	survive_install_imu_fn(priv->shared->libsurvive_ctx, libsurvive_imu_callback);
 	survive_startup(priv->shared->libsurvive_ctx);
 	survive_cal_install(priv->shared->libsurvive_ctx);
