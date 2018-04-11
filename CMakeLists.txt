@@ -127,6 +127,7 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_reproject.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_default_devices.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_playback.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_api.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/json_helpers.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/linmath.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/redist/jsmn.c
