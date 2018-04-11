@@ -120,32 +120,32 @@ void libsurvive_pose_callback(SurviveObject *so, uint32_t timecode, SurvivePose 
 	vive_priv* priv = so->ctx->user_ptr;
 	ohmd_lock_mutex(priv->shared->survive_copy_mutex);
 
-	double* s_pos;
-	double* s_quat;
+	double* openhmd_position;
+	double* openhmd_rotation;
 	// use pose of only lighthouse 0
 	if (strcmp(so->codename, "HMD") == 0) {
 		printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, so->codename,
 		       pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
-		s_pos = priv->shared->hmd->libsurvive_pos;
-		s_quat = priv->shared->hmd->libsurvive_quat;
+		openhmd_position = priv->shared->hmd->libsurvive_pos;
+		openhmd_rotation = priv->shared->hmd->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM0") == 0) {
 		//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
-		s_pos = priv->shared->lc->libsurvive_pos;
-		s_quat = priv->shared->lc->libsurvive_quat;
+		openhmd_position = priv->shared->lc->libsurvive_pos;
+		openhmd_rotation = priv->shared->lc->libsurvive_quat;
 	} else if (strcmp(so->codename, "WM1") == 0) {
 		//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
-		s_pos = priv->shared->rc->libsurvive_pos;
-		s_quat = priv->shared->rc->libsurvive_quat;
+		openhmd_position = priv->shared->rc->libsurvive_pos;
+		openhmd_rotation = priv->shared->rc->libsurvive_quat;
 	}
 
-	s_pos[0] = - pose->Pos[0];
-	s_pos[1] =   pose->Pos[1];
-	s_pos[2] = - pose->Pos[2];
+	openhmd_position[0] = - pose->Pos[0];
+	openhmd_position[1] =   pose->Pos[1];
+	openhmd_position[2] = - pose->Pos[2];
 
-	s_quat[0] =   pose->Rot[0];
-	s_quat[1] = - pose->Rot[1];
-	s_quat[2] =   pose->Rot[2];
-	s_quat[3] = - pose->Rot[3];
+	openhmd_rotation[0] =   pose->Rot[0];
+	openhmd_rotation[1] = - pose->Rot[1];
+	openhmd_rotation[2] =   pose->Rot[2];
+	openhmd_rotation[3] = - pose->Rot[3];
 
 	ohmd_unlock_mutex(priv->shared->survive_copy_mutex);
 }
