@@ -108,6 +108,7 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_disambiguator.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/survive_turveybiguator.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser.c
+	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_general_optimizer.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_epnp.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/epnp/epnp.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/libsurvive/src/poser_sba.c
