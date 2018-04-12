@@ -52,13 +52,13 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 	case OHMD_ROTATION_QUAT:
 		// libsurvive_quat is 0=w 1=x 2=y 3=z
 		// out is 0=x 1=y 2=z 3=w
-		out[0] = (FLT) priv->libsurvive_quat[1];
-		out[1] = (FLT) priv->libsurvive_quat[2];
-		out[2] = (FLT) priv->libsurvive_quat[3];
-		out[3] = (FLT) priv->libsurvive_quat[0];
+		out[0] = (FLT) priv->libsurvive_quat[0];
+		out[1] = (FLT) priv->libsurvive_quat[1];
+		out[2] = (FLT) priv->libsurvive_quat[2];
+		out[3] = (FLT) priv->libsurvive_quat[3];
 
 		//rotation 90° around X axis
-		//oquatf_mult_me((quatf*) out, &abs_rotate_offset);
+		oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
@@ -109,21 +109,18 @@ static void update_device(ohmd_device* device)
 		const char* codename = survive_simple_object_name(it);
 		//printf("%s (%u): %f %f %f %f %f %f %f\n", survive_simple_object_name(it), timecode, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
 		if (strcmp(codename, "HMD") == 0) {
-			printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename,
-			pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
 			openhmd_position = priv->shared->hmd->libsurvive_pos;
 			openhmd_rotation = priv->shared->hmd->libsurvive_quat;
 		} else if (strcmp(codename, "WM0") == 0) {
 			if (priv->shared->lc == NULL) continue; // app doesn't use lc
-			printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename,
-			       pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
 			//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 			openhmd_position = priv->shared->lc->libsurvive_pos;
 			openhmd_rotation = priv->shared->lc->libsurvive_quat;
 		} else if (strcmp(codename, "WM1") == 0) {
 			if (priv->shared->rc == NULL) continue; // app doesn't use rc
-			printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename,
-			       pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
 			//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
 			openhmd_position = priv->shared->rc->libsurvive_pos;
 			openhmd_rotation = priv->shared->rc->libsurvive_quat;
@@ -132,14 +129,14 @@ static void update_device(ohmd_device* device)
 			continue;
 		}
 
-		openhmd_position[0] = - pose.Pos[0];
-		openhmd_position[1] =   pose.Pos[1];
-		openhmd_position[2] = - pose.Pos[2];
+		openhmd_position[0] =  pose.Pos[0];
+		openhmd_position[1] =  pose.Pos[1];
+		openhmd_position[2] =  pose.Pos[2];
 
-		openhmd_rotation[0] =   pose.Rot[0];
-		openhmd_rotation[1] = - pose.Rot[1];
-		openhmd_rotation[2] =   pose.Rot[2];
-		openhmd_rotation[3] = - pose.Rot[3];
+		openhmd_rotation[0] /* x */ =  pose.Rot[1];
+		openhmd_rotation[1] /* y */ =  pose.Rot[2];
+		openhmd_rotation[2] /* z */ =  pose.Rot[3];
+		openhmd_rotation[3] /* w */ =  pose.Rot[0];
 	}
 
 }

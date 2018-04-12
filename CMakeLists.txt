@@ -142,7 +142,7 @@ if(OPENHMD_DRIVER_HTC_VIVE)
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/include/libsurvive
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/redist
 		${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive)
-	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} -L${CMAKE_CURRENT_SOURCE_DIR}/src/ext_deps/libsurvive/lib/ z opencv_core lapacke)
+	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} z opencv_core lapacke)
 endif(OPENHMD_DRIVER_HTC_VIVE)
 
 if(OPENHMD_DRIVER_NOLO)
