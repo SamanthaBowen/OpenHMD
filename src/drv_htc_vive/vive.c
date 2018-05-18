@@ -50,15 +50,13 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 
 	switch(type){
 	case OHMD_ROTATION_QUAT:
-		// libsurvive_quat is 0=w 1=x 2=y 3=z
-		// out is 0=x 1=y 2=z 3=w
 		out[0] = (FLT) priv->libsurvive_quat[0];
 		out[1] = (FLT) priv->libsurvive_quat[1];
 		out[2] = (FLT) priv->libsurvive_quat[2];
 		out[3] = (FLT) priv->libsurvive_quat[3];
 
 		//rotation 90° around X axis
-		oquatf_mult_me((quatf*) out, &abs_rotate_offset);
+		//oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
