@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(openhmd C)
+project(openhmd C CXX)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -92,15 +92,18 @@ endif(OPENHMD_DRIVER_PSVR)
 if(OPENHMD_DRIVER_HTC_VIVE)
 	set(openhmd_source_files ${openhmd_source_files}
 	${CMAKE_CURRENT_LIST_DIR}/src/drv_htc_vive/vive.c
-	${CMAKE_CURRENT_LIST_DIR}/src/drv_htc_vive/packet.c
 	#${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/miniz.c
 	${CMAKE_CURRENT_LIST_DIR}/src/ext_deps/nxjson.c
 	)
 	add_definitions(-DDRIVER_HTC_VIVE)
+	add_definitions(-DUSE_DOUBLE -DFLT=double)
 
 	find_package(HIDAPI REQUIRED)
-	include_directories(${HIDAPI_INCLUDE_DIRS})
-	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES})
+	include_directories(${HIDAPI_INCLUDE_DIRS}
+		/usr/include/libsurvive/libsurvive
+		/usr/include/libsurvive/redist
+		/usr/include/libsurvive)
+	set(LIBS ${LIBS} ${HIDAPI_LIBRARIES} z opencv_core lapacke survive)
 endif(OPENHMD_DRIVER_HTC_VIVE)
 
 if(OPENHMD_DRIVER_NOLO)

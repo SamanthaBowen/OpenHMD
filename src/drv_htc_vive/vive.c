@@ -1,26 +1,14 @@
-// Copyright 2013, Fredrik Hultin.
-// Copyright 2013, Jakob Bornecrantz.
-// Copyright 2013, Joey Ferwerda.
-// SPDX-License-Identifier: BSL-1.0
 /*
  * OpenHMD - Free and Open Source API and drivers for immersive technology.
+ * Copyright (C) 2013 Fredrik Hultin.
+ * Copyright (C) 2013 Jakob Bornecrantz.
+ * Distributed under the Boost 1.0 licence, see LICENSE for full text.
  */
 
 /* HTC Vive Driver */
 
-
-#define FEATURE_BUFFER_SIZE 256
-
 #define HTC_ID                   0x0bb4
 #define VIVE_HMD                 0x2c87
-#define VIVE_PRO_HMD             0x0309
-
-#define VALVE_ID                 0x28de
-#define VIVE_WATCHMAN_DONGLE     0x2101
-#define VIVE_LIGHTHOUSE_FPGA_RX  0x2000
-#define VIVE_LHR                 0x2300 // VIVE PRO
-
-#define VIVE_CLOCK_FREQ 48000000.0f // Hz = 48 MHz
 
 #include <string.h>
 #include <wchar.h>
@@ -30,176 +18,53 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <survive_api.h>
+
 #include "vive.h"
 
-typedef enum {
-	REV_VIVE,
-	REV_VIVE_PRO
-} vive_revision;
-
+typedef struct vive_priv_struct vive_priv;
 typedef struct {
+	SurviveSimpleContext *actx;
+	vive_priv* hmd;
+	vive_priv* lc;
+	vive_priv* rc;
+} vive_shared;
+
+typedef struct vive_priv_struct {
 	ohmd_device base;
+	vive_shared* shared;
+	int id;
 
-	hid_device* hmd_handle;
-	hid_device* imu_handle;
-	fusion sensor_fusion;
-	vec3f raw_accel, raw_gyro;
-	uint32_t last_ticks;
-	uint8_t last_seq;
-
-	vec3f gyro_error;
-	filter_queue gyro_q;
-
-	vive_revision revision;
-
-	vive_imu_config imu_config;
-
+	double libsurvive_pos[3];
+	double libsurvive_quat[4];
 } vive_priv;
 
-void vec3f_from_vive_vec_accel(const vive_imu_config* config,
-                               const int16_t* smp,
-                               vec3f* out)
-{
-	float range = config->acc_range / 32768.0f;
-	out->x = range * config->acc_scale.x * (float) smp[0] - config->acc_bias.x;
-	out->y = range * config->acc_scale.y * (float) smp[1] - config->acc_bias.y;
-	out->z = range * config->acc_scale.z * (float) smp[2] - config->acc_bias.z;
-}
 
-void vec3f_from_vive_vec_gyro(const vive_imu_config* config,
-                              const int16_t* smp,
-                              vec3f* out)
-{
-	float range = config->gyro_range / 32768.0f;
-	out->x = range * config->gyro_scale.x * (float)smp[0] - config->gyro_bias.x;
-	out->y = range * config->gyro_scale.y * (float)smp[1] - config->gyro_bias.x;
-	out->z = range * config->gyro_scale.z * (float)smp[2] - config->gyro_bias.x;
-}
-
-static bool process_error(vive_priv* priv)
-{
-	if(priv->gyro_q.at >= priv->gyro_q.size - 1)
-		return true;
-
-	ofq_add(&priv->gyro_q, &priv->raw_gyro);
-
-	if(priv->gyro_q.at >= priv->gyro_q.size - 1){
-		ofq_get_mean(&priv->gyro_q, &priv->gyro_error);
-		LOGE("gyro error: %f, %f, %f\n", priv->gyro_error.x, priv->gyro_error.y, priv->gyro_error.z);
-	}
-
-	return false;
-}
-
-vive_headset_imu_sample* get_next_sample(vive_headset_imu_packet* pkt, int last_seq)
-{
-	int diff[3];
-
-	for(int i = 0; i < 3; i++)
-	{
-		diff[i] = (int)pkt->samples[i].seq - last_seq;
-
-		if(diff[i] < -128){
-			diff[i] += 256;
-		}
-	}
-
-	int closest_diff = INT_MAX;
-	int closest_idx = -1;
-
-	for(int i = 0; i < 3; i++)
-	{
-		if(diff[i] < closest_diff && diff[i] > 0 && diff[i] < 128){
-			closest_diff = diff[i];
-			closest_idx = i;
-		}
-	}
-
-	if(closest_idx != -1)
-		return pkt->samples + closest_idx;
-
-	return NULL;
-}
-
-static void update_device(ohmd_device* device)
-{
-	vive_priv* priv = (vive_priv*)device;
-
-	int size = 0;
-	unsigned char buffer[FEATURE_BUFFER_SIZE];
-
-	while((size = hid_read(priv->imu_handle, buffer, FEATURE_BUFFER_SIZE)) > 0){
-		if(buffer[0] == VIVE_HMD_IMU_PACKET_ID){
-			vive_headset_imu_packet pkt;
-			vive_decode_sensor_packet(&pkt, buffer, size);
-
-			vive_headset_imu_sample* smp = NULL;
-
-			while((smp = get_next_sample(&pkt, priv->last_seq)) != NULL)
-			{
-				if(priv->last_ticks == 0)
-					priv->last_ticks = smp->time_ticks;
-
-				uint32_t t1, t2;
-				t1 = smp->time_ticks;
-				t2 = priv->last_ticks;
-
-				float dt = (t1 - t2) / VIVE_CLOCK_FREQ;
-
-				priv->last_ticks = smp->time_ticks;
-
-				vec3f_from_vive_vec_accel(&priv->imu_config, smp->acc, &priv->raw_accel);
-				vec3f_from_vive_vec_gyro(&priv->imu_config, smp->rot, &priv->raw_gyro);
-
-				// Fix imu orientation
-				switch (priv->revision) {
-					case REV_VIVE:
-						priv->raw_accel.y *= -1;
-						priv->raw_accel.z *= -1;
-						priv->raw_gyro.y *= -1;
-						priv->raw_gyro.z *= -1;
-						break;
-					case REV_VIVE_PRO:
-						priv->raw_accel.x *= -1;
-						priv->raw_accel.z *= -1;
-						priv->raw_gyro.x *= -1;
-						priv->raw_gyro.z *= -1;
-						break;
-					default:
-						LOGE("Unknown VIVE revision.\n");
-				}
-
-				if(process_error(priv)){
-					vec3f mag = {{0.0f, 0.0f, 0.0f}};
-					vec3f gyro;
-					ovec3f_subtract(&priv->raw_gyro, &priv->gyro_error, &gyro);
-
-					ofusion_update(&priv->sensor_fusion, dt, &gyro, &priv->raw_accel, &mag);
-				}
-
-				priv->last_seq = smp->seq;
-			}
-		}else{
-			LOGE("unknown message type: %u", buffer[0]);
-		}
-	}
-
-	if(size < 0){
-		LOGE("error reading from device");
-	}
-}
+quatf abs_rotate_offset = { -sqrt(0.5), 0, 0 ,sqrt(0.5) };
 
 static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 {
 	vive_priv* priv = (vive_priv*)device;
 
+	//printf("getf for id %d\n", priv->id);
+
 	switch(type){
 	case OHMD_ROTATION_QUAT:
-		*(quatf*)out = priv->sensor_fusion.orient;
+		out[0] = (FLT) priv->libsurvive_quat[0];
+		out[1] = (FLT) priv->libsurvive_quat[1];
+		out[2] = (FLT) priv->libsurvive_quat[2];
+		out[3] = (FLT) priv->libsurvive_quat[3];
+
+		//rotation 90° around X axis
+		//oquatf_mult_me((quatf*) out, &abs_rotate_offset);
 		break;
 
 	case OHMD_POSITION_VECTOR:
-		out[0] = out[1] = out[2] = 0;
+		out[0] = (FLT) priv->libsurvive_pos[0];
+		out[1] = (FLT) priv->libsurvive_quat[1];
+		out[2] = (FLT) priv->libsurvive_quat[2];
+
+		//oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
 		break;
 
 	case OHMD_DISTORTION_K:
@@ -218,402 +83,221 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 
 static void close_device(ohmd_device* device)
 {
-	int hret = 0;
-	vive_priv* priv = (vive_priv*)device;
-
-	LOGD("closing HTC Vive device");
-
-	// turn the display off
-	switch (priv->revision) {
-		case REV_VIVE:
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_magic_power_off1,
-			                               sizeof(vive_magic_power_off1));
-			LOGI("power off magic 1: %d\n", hret);
-
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_magic_power_off2,
-			                               sizeof(vive_magic_power_off2));
-			LOGI("power off magic 2: %d\n", hret);
-			break;
-		case REV_VIVE_PRO:
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_pro_magic_power_off,
-			                               sizeof(vive_pro_magic_power_off));
-			LOGI("vive pro power off magic: %d\n", hret);
-			break;
-		default:
-			LOGE("Unknown VIVE revision.\n");
-	}
-
-	hid_close(priv->hmd_handle);
-	hid_close(priv->imu_handle);
-
-	free(device);
+	 vive_priv* priv = (vive_priv*) device;
+	 survive_simple_close(priv->shared->actx);
 }
 
-#if 0
-static void dump_indexed_string(hid_device* device, int index)
+static vive_priv* drv_priv_get(ohmd_device* device)
 {
-	wchar_t wbuffer[512] = {0};
-	char buffer[1024] = {0};
-
-	int hret = hid_get_indexed_string(device, index, wbuffer, 511);
-
-	if(hret == 0){
-		wcstombs(buffer, wbuffer, sizeof(buffer));
-		LOGD("indexed string 0x%02x: '%s'\n", index, buffer);
-	}
-}
-#endif
-
-static void dump_info_string(int (*fun)(hid_device*, wchar_t*, size_t), const char* what, hid_device* device)
-{
-	wchar_t wbuffer[512] = {0};
-	char buffer[1024] = {0};
-
-	int hret = fun(device, wbuffer, 511);
-
-	if(hret == 0){
-		wcstombs(buffer, wbuffer, sizeof(buffer));
-		LOGI("%s: '%s'\n", what, buffer);
-	}
+	return (vive_priv*)device;
 }
 
-#if 0
-static void dumpbin(const char* label, const unsigned char* data, int length)
+static void update_device(ohmd_device* device)
 {
-	printf("%s:\n", label);
-	for(int i = 0; i < length; i++){
-		printf("%02x ", data[i]);
-		if((i % 16) == 15)
-			printf("\n");
-	}
-	printf("\n");
-}
-#endif
+	vive_priv* priv = drv_priv_get(device);
 
-static hid_device* open_device_idx(int manufacturer, int product, int iface, int iface_tot, int device_index)
-{
-	struct hid_device_info* devs = hid_enumerate(manufacturer, product);
-	struct hid_device_info* cur_dev = devs;
+	SurvivePose pose;
+	//TODO: this updates hmd and all controllers whenever update is called for any of them
+	for (const SurviveSimpleObject *it = survive_simple_get_first_object(priv->shared->actx); it != 0; it = survive_simple_get_next_object(priv->shared->actx, it)) {
+		double* openhmd_position;
+		double* openhmd_rotation;
 
-	int idx = 0;
-	int iface_cur = 0;
-	hid_device* ret = NULL;
+		uint32_t timecode = survive_simple_object_get_latest_pose(it, &pose);
 
-	while (cur_dev) {
-		LOGI("%04x:%04x %s\n", manufacturer, product, cur_dev->path);
-
-		if(idx == device_index && iface == iface_cur){
-			ret = hid_open_path(cur_dev->path);
-			LOGI("opening\n");
+		const char* codename = survive_simple_object_name(it);
+		//printf("%s (%u): %f %f %f %f %f %f %f\n", survive_simple_object_name(it), timecode, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+		if (strcmp(codename, "HMD") == 0) {
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			openhmd_position = priv->shared->hmd->libsurvive_pos;
+			openhmd_rotation = priv->shared->hmd->libsurvive_quat;
+		} else if (strcmp(codename, "WM0") == 0) {
+			if (priv->shared->lc == NULL) continue; // app doesn't use lc
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			//printf("Controller 0 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
+			openhmd_position = priv->shared->lc->libsurvive_pos;
+			openhmd_rotation = priv->shared->lc->libsurvive_quat;
+		} else if (strcmp(codename, "WM1") == 0) {
+			if (priv->shared->rc == NULL) continue; // app doesn't use rc
+			//printf("Pose: [%u][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", timecode, codename, pose.Pos[0], pose.Pos[1], pose.Pos[2], pose.Rot[0], pose.Rot[1], pose.Rot[2], pose.Rot[3]);
+			//printf("Controller 1 Pose: [%1.1x][%s][% 08.8f,% 08.8f,% 08.8f] [% 08.8f,% 08.8f,% 08.8f,% 08.8f]\n", lighthouse, so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
+			openhmd_position = priv->shared->rc->libsurvive_pos;
+			openhmd_rotation = priv->shared->rc->libsurvive_quat;
+		} else {
+			// LH0 etc
+			continue;
 		}
 
-		cur_dev = cur_dev->next;
+		openhmd_position[0] =  pose.Pos[0];
+		openhmd_position[1] =  pose.Pos[1];
+		openhmd_position[2] =  pose.Pos[2];
 
-		iface_cur++;
-
-		if(iface_cur >= iface_tot){
-			idx++;
-			iface_cur = 0;
-		}
+		openhmd_rotation[0] /* x */ =  pose.Rot[1];
+		openhmd_rotation[1] /* y */ =  pose.Rot[2];
+		openhmd_rotation[2] /* z */ =  pose.Rot[3];
+		openhmd_rotation[3] /* w */ =  pose.Rot[0];
 	}
 
-	hid_free_enumeration(devs);
-
-	return ret;
 }
 
-int vive_read_config(vive_priv* priv)
-{
-	unsigned char buffer[128];
-	int bytes;
-
-	LOGI("Getting feature report 16 to 39\n");
-	buffer[0] = VIVE_CONFIG_START_PACKET_ID;
-	bytes = hid_get_feature_report(priv->imu_handle, buffer, sizeof(buffer));
-	printf("got %i bytes\n", bytes);
-
-	if (bytes < 0)
-		return bytes;
-
-	for (int i = 0; i < bytes; i++) {
-		printf("%02x ", buffer[i]);
-	}
-	printf("\n\n");
-
-	unsigned char* packet_buffer = malloc(4096);
-
-	int offset = 0;
-	while (buffer[1] != 0) {
-		buffer[0] = VIVE_CONFIG_READ_PACKET_ID;
-		bytes = hid_get_feature_report(priv->imu_handle, buffer, sizeof(buffer));
-
-    memcpy((uint8_t*)packet_buffer + offset, buffer+2, buffer[1]);
-    offset += buffer[1];
-  }
-  packet_buffer[offset] = '\0';
-  //LOGD("Result: %s\n", packet_buffer);
-  vive_decode_config_packet(&priv->imu_config, packet_buffer, offset);
-
-  free(packet_buffer);
-
-  return 0;
-}
-
-#define OHMD_GRAVITY_EARTH 9.80665 // m/s²
-
-int vive_get_range_packet(vive_priv* priv)
-{
-  unsigned char buffer[64];
-
-  int ret;
-  int i;
-
-  buffer[0] = VIVE_IMU_RANGE_MODES_PACKET_ID;
-
-  ret = hid_get_feature_report(priv->imu_handle, buffer, sizeof(buffer));
-  if (ret < 0)
-    return ret;
-
-  if (!buffer[1] || !buffer[2]) {
-    ret = hid_get_feature_report(priv->imu_handle, buffer, sizeof(buffer));
-    if (ret < 0)
-      return ret;
-
-    if (!buffer[1] || !buffer[2]) {
-      LOGE("unexpected range mode report: %02x %02x %02x",
-        buffer[0], buffer[1], buffer[2]);
-      for (i = 0; i < 61; i++)
-        LOGE(" %02x", buffer[3+i]);
-      LOGE("\n");
-    }
-  }
-
-  if (buffer[1] > 4 || buffer[2] > 4)
-    return -1;
-
-  /*
-   * Convert MPU-6500 gyro full scale range (+/-250°/s, +/-500°/s,
-   * +/-1000°/s, or +/-2000°/s) into rad/s, accel full scale range
-   * (+/-2g, +/-4g, +/-8g, or +/-16g) into m/s².
-   */
-  double gyro_range = M_PI / 180.0 * (250 << buffer[0]);
-  priv->imu_config.gyro_range = (float) gyro_range;
-  LOGI("gyro_range %f\n", gyro_range);
-
-  double acc_range = OHMD_GRAVITY_EARTH * (2 << buffer[1]);
-  priv->imu_config.acc_range = (float) acc_range;
-  LOGI("acc_range %f\n", acc_range);
-
-  return 0;
-}
-
+static vive_shared* shared; //TODO: get rid of this
 static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 {
 	vive_priv* priv = ohmd_alloc(driver->ctx, sizeof(vive_priv));
 
-	if(!priv)
+	if(!priv) {
+		printf("alloc failed!\n");
 		return NULL;
+	}
 
-	int hret = 0;
+	if (!shared) {
+		printf("Initializing shared libsurvive access...\n");
+		shared = malloc(sizeof(vive_shared));
+		shared->lc = NULL;
+		shared->rc = NULL;
+		shared->actx = survive_simple_init(0, 0);
+		if (shared->actx == 0) { // implies -help or similiar
+			printf("Error initializing libsurvive\n");
+			return NULL;
+		}
 
-	priv->revision = desc->revision;
+		survive_simple_start_thread(shared->actx);
+		//printf("thread %d creates libsurvive thread\n", pthread_self());
+	}
+	priv->shared = shared;
+
+	priv->id = desc->id;
 
 	priv->base.ctx = driver->ctx;
 
-	int idx = atoi(desc->path);
-
-	// Open the HMD device
-	switch (desc->revision) {
-		case REV_VIVE:
-			priv->hmd_handle = open_device_idx(HTC_ID, VIVE_HMD, 0, 1, idx);
-			break;
-		case REV_VIVE_PRO:
-			priv->hmd_handle = open_device_idx(HTC_ID, VIVE_PRO_HMD, 0, 1, idx);
-			break;
-		default:
-			LOGE("Unknown VIVE revision.\n");
-	}
-
-	if(!priv->hmd_handle)
-		goto cleanup;
-
-	if(hid_set_nonblocking(priv->hmd_handle, 1) == -1){
-		ohmd_set_error(driver->ctx, "failed to set non-blocking on device");
-		goto cleanup;
-	}
-
-	switch (desc->revision) {
-		case REV_VIVE:
-			priv->imu_handle = open_device_idx(VALVE_ID,
-			                                   VIVE_LIGHTHOUSE_FPGA_RX, 0, 2, idx);
-			break;
-		case REV_VIVE_PRO:
-			priv->imu_handle = open_device_idx(VALVE_ID, VIVE_LHR, 0, 1, idx);
-			break;
-		default:
-			LOGE("Unknown VIVE revision.\n");
-	}
-
-	if(!priv->imu_handle)
-		goto cleanup;
-
-	if(hid_set_nonblocking(priv->imu_handle, 1) == -1){
-		ohmd_set_error(driver->ctx, "failed to set non-blocking on device");
-		goto cleanup;
-	}
-
-	dump_info_string(hid_get_manufacturer_string, "manufacturer", priv->hmd_handle);
-	dump_info_string(hid_get_product_string , "product", priv->hmd_handle);
-	dump_info_string(hid_get_serial_number_string, "serial number", priv->hmd_handle);
-
-	switch (desc->revision) {
-		case REV_VIVE:
-			// turn the display on
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_magic_power_on,
-			                               sizeof(vive_magic_power_on));
-			LOGI("power on magic: %d\n", hret);
-			break;
-		case REV_VIVE_PRO:
-			// turn the display on
-			hret = hid_send_feature_report(priv->hmd_handle,
-			                               vive_pro_magic_power_on,
-			                               sizeof(vive_pro_magic_power_on));
-			LOGI("power on magic: %d\n", hret);
-
-			// Enable VIVE Pro IMU
-			hret = hid_send_feature_report(priv->imu_handle,
-			                               vive_pro_enable_imu,
-			                               sizeof(vive_pro_enable_imu));
-			LOGI("Enable Pro IMU magic: %d\n", hret);
-			break;
-		default:
-			LOGE("Unknown VIVE revision.\n");
-	}
-
-	// enable lighthouse
-	//hret = hid_send_feature_report(priv->hmd_handle, vive_magic_enable_lighthouse, sizeof(vive_magic_enable_lighthouse));
-	//LOGD("enable lighthouse magic: %d\n", hret);
-
-	if (vive_read_config(priv) != 0)
-	{
-		LOGW("Could not read config. Using defaults.\n");
-		priv->imu_config.acc_bias.x = 0.157200f;
-		priv->imu_config.acc_bias.y = -0.011150f;
-		priv->imu_config.acc_bias.z = -0.144900f;
-
-		priv->imu_config.acc_scale.x = 0.999700f;
-		priv->imu_config.acc_scale.y = 0.998900f;
-		priv->imu_config.acc_scale.z = 0.998000f;
-
-		priv->imu_config.gyro_bias.x = -0.027770f;
-		priv->imu_config.gyro_bias.y = -0.011410f;
-		priv->imu_config.gyro_bias.z = -0.014760f;
-
-		priv->imu_config.gyro_scale.x = 1.0f;
-		priv->imu_config.gyro_scale.y = 1.0f;
-		priv->imu_config.gyro_scale.z = 1.0f;
-	}
-
-	if (vive_get_range_packet(priv) != 0)
-	{
-		LOGW("Could not get range packet.\n");
-		priv->imu_config.gyro_range = 8.726646f;
-		priv->imu_config.acc_range = 39.226600f;
+	if (priv->id == 0) {
+		priv->shared->hmd = priv;
+	} else if (priv->id == 1) {
+		priv->shared->lc = priv;
+		return (ohmd_device*)priv;
+	} else if (priv->id == 2) {
+		priv->shared->rc = priv;
+		return (ohmd_device*)priv;
 	}
 
 	// Set default device properties
 	ohmd_set_default_device_properties(&priv->base.properties);
 
 	// Set device properties TODO: Get from device
-	switch (desc->revision) {
-		case REV_VIVE:
-			priv->base.properties.hres = 2160;
-			priv->base.properties.vres = 1200;
-			priv->base.properties.ratio = (2160.0f / 1200.0f) / 2.0f;
-			break;
-		case REV_VIVE_PRO:
-			priv->base.properties.hres = 2880;
-			priv->base.properties.vres = 1600;
-			priv->base.properties.ratio = (2880.0f / 1600.0f) / 2.0f;
-			break;
-		default:
-			LOGE("Unknown VIVE revision.\n");
-	}
-
-	//TODO: Confirm exact mesurements. Get for VIVE Pro.
 	priv->base.properties.hsize = 0.122822f;
 	priv->base.properties.vsize = 0.068234f;
-
-	/*
-	 * calculated from here:
-	 * https://www.gamedev.net/topic/683698-projection-matrix-model-of-the-htc-vive/
-	 */
+	priv->base.properties.hres = 2160;
+	priv->base.properties.vres = 1200;
+    /*
+    // calculated from here: https://www.gamedev.net/topic/683698-projection-matrix-model-of-the-htc-vive/
 	priv->base.properties.lens_sep = 0.057863;
 	priv->base.properties.lens_vpos = 0.033896;
+    */
+    // estimated 'by eye' on jsarret's vive
+	priv->base.properties.lens_sep = 0.056;
+	priv->base.properties.lens_vpos = 0.032;
+    float eye_to_screen_distance = 0.023226876441867737;
+	//priv->base.properties.fov = DEG_TO_RAD(111.435f); //TODO: Confirm exact mesurements
+	priv->base.properties.ratio = (2160.0f / 1200.0f) / 2.0f;
 
-	float eye_to_screen_distance = 0.023226876441867737;
+	/*
+    ohmd_set_universal_distortion_k(&(priv->base.properties), 0.394119, -0.508383, 0.323322, 0.790942);
+    */
+	ohmd_set_universal_distortion_k(&(priv->base.properties), 1.318397, -1.490242, 0.663824, 0.508021);
+	ohmd_set_universal_aberration_k(&(priv->base.properties), 1.00010147892f, 1.000f, 1.00019614479f);
+
+
+	// calculate projection eye projection matrices from the device properties
+	//ohmd_calc_default_proj_matrices(&priv->base.properties);
+	float l,r,t,b,n,f;
+	// left eye screen bounds
+	l = -1.0f * (priv->base.properties.hsize/2 - priv->base.properties.lens_sep/2);
+	r = priv->base.properties.lens_sep/2;
+	t = priv->base.properties.vsize - priv->base.properties.lens_vpos;
+	b = -1.0f * priv->base.properties.lens_vpos;
+	n = eye_to_screen_distance;
+	f = n*10e6;
+	//LOGD("l: %0.3f, r: %0.3f, b: %0.3f, t: %0.3f, n: %0.3f, f: %0.3f", l,r,b,t,n,f);
+	/* eye separation is handled by IPD in the Modelview matrix */
+	omat4x4f_init_frustum(&priv->base.properties.proj_left, l, r, b, t, n, f);
+	//right eye screen bounds
+	l = -1.0f * priv->base.properties.lens_sep/2;
+	r = priv->base.properties.hsize/2 - priv->base.properties.lens_sep/2;
+	n = eye_to_screen_distance;
+	f = n*10e6;
+	//LOGD("l: %0.3f, r: %0.3f, b: %0.3f, t: %0.3f, n: %0.3f, f: %0.3f", l,r,b,t,n,f);
+	/* eye separation is handled by IPD in the Modelview matrix */
+	omat4x4f_init_frustum(&priv->base.properties.proj_right, l, r, b, t, n, f);
+
 	priv->base.properties.fov = 2 * atan2f(
-		priv->base.properties.hsize / 2 - priv->base.properties.lens_sep / 2,
-		eye_to_screen_distance);
-
-	/* calculate projection eye projection matrices from the device properties */
-	ohmd_calc_default_proj_matrices(&priv->base.properties);
+			priv->base.properties.hsize/2 - priv->base.properties.lens_sep/2,
+			eye_to_screen_distance);
 
 	// set up device callbacks
 	priv->base.update = update_device;
-	priv->base.close = close_device;
 	priv->base.getf = getf;
-
-	ofusion_init(&priv->sensor_fusion);
-
-	ofq_init(&priv->gyro_q, 128);
+	priv->base.close = close_device;
 
 	return (ohmd_device*)priv;
-
-cleanup:
-	if(priv)
-		free(priv);
-
-	return NULL;
 }
 
 static void get_device_list(ohmd_driver* driver, ohmd_device_list* list)
 {
-	vive_revision rev;
 	struct hid_device_info* devs = hid_enumerate(HTC_ID, VIVE_HMD);
-
-	if (devs != NULL) {
-		rev = REV_VIVE;
-	} else {
-		devs = hid_enumerate(HTC_ID, VIVE_PRO_HMD);
-		if (devs != NULL)
-			rev = REV_VIVE_PRO;
-	}
-
 	struct hid_device_info* cur_dev = devs;
 
 	int idx = 0;
 	while (cur_dev) {
 		ohmd_device_desc* desc = &list->devices[list->num_devices++];
 
-		strcpy(desc->driver, "OpenHMD HTC Vive Driver");
+		strcpy(desc->driver, "OpenHMD HTC Vive Driver (libsurvive)");
 		strcpy(desc->vendor, "HTC/Valve");
 		strcpy(desc->product, "HTC Vive");
 
-		desc->revision = rev;
+		desc->revision = 0;
 
 		snprintf(desc->path, OHMD_STR_SIZE, "%d", idx);
 
 		desc->driver_ptr = driver;
+		desc->device_flags = OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING | OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING;
 		desc->device_class = OHMD_DEVICE_CLASS_HMD;
-		desc->device_flags = OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING;
+
+		desc->id = idx++;
+
+		//Controller 0
+		desc = &list->devices[list->num_devices++];
+
+		strcpy(desc->driver, "OpenHMD HTC Vive Driver (libsurvive)");
+		strcpy(desc->vendor, "HTC/Valve");
+		strcpy(desc->product, "HTC Vive: Controller 0");
+
+		strcpy(desc->path, cur_dev->path);
+
+		desc->device_flags =
+		OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_RIGHT_CONTROLLER;
+
+		desc->driver_ptr = driver;
+		desc->id = idx++;
+
+		// Controller 1
+		desc = &list->devices[list->num_devices++];
+
+		strcpy(desc->driver, "OpenHMD HTC Vive Driver (libsurvive)");
+		strcpy(desc->vendor, "HTC/Valve");
+		strcpy(desc->product, "HTC Vive: Controller 1");
+
+		strcpy(desc->path, cur_dev->path);
+
+		desc->device_flags =
+		OHMD_DEVICE_FLAGS_POSITIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_ROTATIONAL_TRACKING |
+		OHMD_DEVICE_FLAGS_LEFT_CONTROLLER;
+
+		desc->driver_ptr = driver;
+		desc->id = idx++;
 
 		cur_dev = cur_dev->next;
-		idx++;
 	}
 
 	hid_free_enumeration(devs);
