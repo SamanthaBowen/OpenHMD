@@ -61,8 +61,8 @@ static int getf(ohmd_device* device, ohmd_float_value type, float* out)
 
 	case OHMD_POSITION_VECTOR:
 		out[0] = (FLT) priv->libsurvive_pos[0];
-		out[1] = (FLT) priv->libsurvive_quat[1];
-		out[2] = (FLT) priv->libsurvive_quat[2];
+		out[1] = (FLT) priv->libsurvive_pos[1];
+		out[2] = (FLT) priv->libsurvive_pos[2];
 
 		//oquatf_get_rotated(&abs_rotate_offset, (vec3f*) out, (vec3f*) out);
 		break;
