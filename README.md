@@ -1,6 +1,13 @@
 # OpenHMD
 This project aims to provide a Free and Open Source API and drivers for immersive technology, such as head mounted displays with built in head tracking.
 
+## About this fork
+This fork uses [libsurvive](https://github.com/cnlohr/libsurvive) to support the HTC Vive's position tracking.
+
+When using this fork with the HTC Vive, make sure libsurvive and its plugins are installed on the system as shared libraries and that the necessary libsurvive configuration files are placed in the working directory when executing a program that uses OpenHMD. Please read the [libsurvive project's README to learn how to configure libsurvive](https://github.com/cnlohr/libsurvive/blob/master/README.md#general-information).
+
+Currently, this fork only builds with CMake.
+
 ## License
 OpenHMD is released under the permissive Boost Software License (see LICENSE for more information), to make sure it can be linked and distributed with both free and non-free software. While it doesn't require contribution from the users, it is still very appreciated.
 
@@ -23,6 +30,8 @@ For a full list of supported devices please check https://github.com/OpenHMD/Ope
   * HIDAPI
     * http://www.signal11.us/oss/hidapi/
     * https://github.com/signal11/hidapi/
+  * libsurvive (if you're using this fork)
+    * https://github.com/cnlohr/libsurvive
 
 ## Language Bindings
   * GO bindings by Marko (Apfel)
