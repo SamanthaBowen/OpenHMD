@@ -1,12 +1,12 @@
 # OpenHMD
 This project aims to provide a Free and Open Source API and drivers for immersive technology, such as head mounted displays with built in head tracking.
 
-## About this fork
-This fork uses [libsurvive](https://github.com/cnlohr/libsurvive) to support the HTC Vive's position tracking. The fork is based off of https://github.com/ChristophHaag/OpenHMD/tree/libsurvive.
+## About this branch
+This branch uses [libsurvive](https://github.com/cnlohr/libsurvive) to support the HTC Vive's position tracking. The branch is based off of https://github.com/ChristophHaag/OpenHMD/tree/libsurvive.
 
-When using this fork with the HTC Vive, make sure libsurvive and its plugins are installed on the system as shared libraries and that the necessary libsurvive configuration files (config.json and HMD_config.json) are placed in the working directory when executing a program that uses OpenHMD. Please read the [libsurvive project's README to learn how to configure libsurvive](https://github.com/cnlohr/libsurvive/blob/master/README.md#general-information). Some recommended configuration settings include using "EPNP" for the poser and "turveybiguator" for the disambiguator.
+When using this branch with the HTC Vive, make sure libsurvive and its plugins are installed on the system as shared libraries and that the necessary libsurvive configuration files (config.json and HMD_config.json) are placed in the working directory when executing a program that uses OpenHMD. Please read the [libsurvive project's README to learn how to configure libsurvive](https://github.com/cnlohr/libsurvive/blob/master/README.md#general-information). Some recommended configuration settings include using "EPNP" for the poser and "turveybiguator" for the disambiguator.
 
-Currently, this fork only builds with CMake.
+Currently, this branch only builds with CMake.
 
 ## License
 OpenHMD is released under the permissive Boost Software License (see LICENSE for more information), to make sure it can be linked and distributed with both free and non-free software. While it doesn't require contribution from the users, it is still very appreciated.
